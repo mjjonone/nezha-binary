@@ -26,7 +26,7 @@ jobs:
           dest: musldist
           pkg: .
           prefix: nezha-agent
-          targets: linux/amd64,linux/arm64,linux/arm,linux/s390x,linux/riscv64,linux/386,linux/mips,linux/mipsle
+          targets: linux/amd64,linux/arm64,linux/arm,linux/386,linux/mips,linux/mipsle
           v: true
           x: false
           race: false
@@ -35,13 +35,15 @@ jobs:
 
       - name: Compress with UPX
         run: |
-          sudo apt-get -y install upx-ucl
+          wget https://github.com/upx/upx/releases/download/v4.2.0/upx-4.2.0-amd64_linux.tar.xz 
+          tar -Jxf upx*.tar.xz
+          sudo cp upx*/upx /usr/bin
           upx -9 musldist/*
 
       - name: Upload dist
         uses: actions/upload-artifact@main
         with:
-          name: nezha-dashboard
+          name: nezha-agent
           path: |
               musldist
 
