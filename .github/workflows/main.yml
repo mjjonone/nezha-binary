@@ -18,35 +18,15 @@ jobs:
         with:
           repository: 'nezhahq/agent'
 
-      - name: go build static
+      - name: xgo build static
         uses: crazy-max/ghaction-xgo@v2
         with:
           xgo_version: latest
           go_version: 1.21
           dest: musldist
           pkg: .
-          prefix: nezha-agent-musl
-          targets: |
-              goos:
-              - linux
-              - windows
-              - freebsd
-              goarch:
-              - arm
-              - arm64
-              - 386
-              - amd64
-              - mips
-              - mipsle
-              - s390x
-              - riscv64
-              gomips:
-              - softfloat
-              ignore:
-              - goos: windows
-                goarch: arm
-              - goos: windows
-                goarch: arm64
+          prefix: nezha-agent
+          targets: linux/amd64,linux/arm64,linux/arm,linux/s390x,linux/riscv64,linux/386,linux/mips,linux/mipsle,freebsd/amd64,freebsd/arm64
           v: true
           x: false
           race: false
