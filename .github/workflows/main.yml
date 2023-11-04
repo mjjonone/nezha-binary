@@ -31,8 +31,10 @@ jobs:
           v: true
           x: false
           race: false
-          ldflags: "-s -w --extldflags '-static -fpic' -X main.CGO_ENABLED=0"
+          ldflags: -s -w --extldflags '-static -fpic'
           buildmode: default
+        env:
+          CGO_ENABLED: "0"
 
       - name: Compress with UPX
         run: |
