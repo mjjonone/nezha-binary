@@ -80,10 +80,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_KEY }}
           
-      - name: Cleanup old runs
-        run: |
-         gh auth login --with-token <<< "${{ secrets.ACCESS_KEY }}"
-         runs=$(gh api repos/${{ github.repository }}/actions/runs --paginate | jq -r '.workflow_runs[] | select(.name=="Update IP List") | .id' | tail -n +3)
-         for run in $runs; do
-         gh api repos/${{ github.repository }}/actions/runs/$run -X DELETE
-         done
+      - name: clean workflow runs
+        uses: boredland/action-purge-workflow-runs@main
+        with:
+          days-old: 2
+        env:
+          GITHUB_TOKEN: ${{ secrets.ACCESS_KEY }}
