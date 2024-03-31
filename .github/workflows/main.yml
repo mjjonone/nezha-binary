@@ -50,7 +50,9 @@ jobs:
           mv release/* musldist/
       - name: Compress with UPX
         run: |
-          wget https://github.com/upx/upx/releases/download/v4.2.0/upx-4.2.0-amd64_linux.tar.xz 
+          latest_url=$(wget -qO- https://github.com/upx/upx/releases/latest | grep -oP 'https://github.com/upx/upx/releases/download/v[\d.]+/upx-[\d.]+-amd64_linux\.tar\.xz')
+          echo $latest_url
+          wget $latest_url
           tar -Jxf upx*.tar.xz
           sudo cp upx*/upx /usr/bin
           upx -9 musldist/*
