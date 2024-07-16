@@ -81,6 +81,8 @@ jobs:
         uses: dev-drprasad/delete-older-releases@v0.3.4
         with:
           keep_latest: 3
+          keep_min_download_counts: 1
+          delete_expired_data: 3
           delete_tag_pattern: beta
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_KEY }}
