@@ -34,6 +34,7 @@ jobs:
         run: |
           echo $RELEASE_VERSION
           echo ${{ env.RELEASE_VERSION }}
+          
       - name: Build
         timeout-minutes: 180
         run: |
@@ -51,6 +52,7 @@ jobs:
           CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build                     -mod=mod -ldflags="${VERSION_FLAGS} -w -s" -o release/${NAME}-linux-arm64 ${SRC}
           mkdir -p musldist
           mv release/* musldist/
+          
       - name: Compress with UPX
         run: |
           latest_url=$(wget -qO- https://github.com/upx/upx/releases/latest | grep -oP 'https://github.com/upx/upx/releases/download/v[\d.]+/upx-[\d.]+-amd64_linux\.tar\.xz')
@@ -59,12 +61,14 @@ jobs:
           tar -Jxf upx*.tar.xz
           sudo cp upx*/upx /usr/bin
           upx -9 musldist/*
+          
       - name: Upload dist
         uses: actions/upload-artifact@main
         with:
           name: nezha-agent
           path: |
               musldist
+              
       - name: Generate release tag
         id: tag
         run: echo "::set-output name=release_tag::$(date +"%Y.%m.%d-%H%M")"
@@ -72,24 +76,22 @@ jobs:
       - name: Create release
         uses: softprops/action-gh-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.ACCESS_KEY }}
         with:
           tag_name: ${{ steps.tag.outputs.release_tag }}
           files: |
               musldist/*
-      - name: Remove old Releases
-        uses: dev-drprasad/delete-older-releases@v0.3.4
-        with:
-          keep_latest: 3
-          keep_min_download_counts: 1
-          delete_expired_data: 3
-          delete_tag_pattern: beta
+              
+      - name: Remove old releases and tags
+        run: |
+          gh release delete $(gh release list --limit 100 | awk 'NR>2 {print \$1}') --yes
+          gh api --method DELETE /repos/${{ github.repository }}/git/refs/tags/$(gh tag list --limit 100 | awk 'NR>2 {print \$1}')
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_KEY }}
           
-      - name: clean workflow runs
-        uses: boredland/action-purge-workflow-runs@main
+      - name: Clean workflow runs
+        uses: GabrielBB/delete-workflow-runs@v1
         with:
-          days-old: 2
+          retain_last: 2
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_KEY }}
