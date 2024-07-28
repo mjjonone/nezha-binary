@@ -32,6 +32,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v2
         with:
           version: latest
+          args: release --rm-dist --snapshot --skip-publish --env GORELEASER_CURRENT_TAG=${{ github.event.inputs.version }}
 
       - name: Set env
         run: echo "RELEASE_VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
@@ -40,9 +41,6 @@ jobs:
         run: |
           echo $RELEASE_VERSION
           echo ${{ env.RELEASE_VERSION }}
-      
-      - name: Build binaries
-        run: goreleaser release --rm-dist --snapshot --skip-publish --env GORELEASER_CURRENT_TAG=${{ env.RELEASE_VERSION }}
 
       - name: Compress with UPX
         run: |
