@@ -43,12 +43,11 @@ jobs:
             CGO_ENABLED=0 GOOS=linux GOARCH=$ARCH go build -mod=mod -ldflags="${VERSION_FLAGS} -w -s" -o release/${NAME}-linux-${ARCH} ${SRC}
           done
 
-      - name: Compress with UPX
-        run: |
-          wget $(wget -qO- https://api.github.com/repos/upx/upx/releases/latest | grep -oP 'https://github.com/upx/upx/releases/download/.*amd64_linux\.tar\.xz')
-          tar -xf upx*.tar.xz
-          sudo mv upx*/upx /usr/local/bin
-          upx -9 release/*
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: nezha-agent
+          path: release
 
       - name: Create release
         uses: softprops/action-gh-release@v1
@@ -62,6 +61,18 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_KEY }}
         run: |
-          gh release list --repo mjjonone/nezha-agent-binary --limit 100 | awk 'NR>2 {print \$1}' | xargs -I {} gh release delete --repo mjjonone/nezha-agent-binary {} --yes
-          gh api repos/mjjonone/nezha-agent-binary/git/refs/tags --jq '.[].ref' | sed 's/refs\/tags\///' | tail -n +3 | xargs -I {} gh api --method DELETE /repos/mjjonone/nezha-agent-binary/git/refs/tags/{}
-          gh api -X GET /repos/mjjonone/nezha-agent-binary/actions/runs | jq -r '.workflow_runs | sort_by(.run_number) | reverse | .[2:] | .[].id' | xargs -I {} gh api -X DELETE /repos/mjjonone/nezha-agent-binary/actions/runs/{}
+          # Delete old releases
+          gh release list --repo mjjonone/nezha-agent-binary --limit 100 | awk 'NR>2 {print \$1}' | while read release; do
+            gh release delete --repo mjjonone/nezha-agent-binary "$release" --yes || true
+          done
+
+          # Delete old tags
+          gh api repos/mjjonone/nezha-agent-binary/git/refs/tags --jq '.[].ref' | sed 's/refs\/tags\///' | tail -n +3 | while read tag; do
+            gh api --method DELETE /repos/mjjonone/nezha-agent-binary/git/refs/tags/"$tag" || true
+          done
+
+          # Delete old workflow runs, keeping the latest two
+          gh api -X GET /repos/mjjonone/nezha-agent-binary/actions/runs | jq -r '.workflow_runs | sort_by(.run_number) | reverse | .[2:] | .[].id' | while read run_id; do
+            gh api -X DELETE /repos/mjjonone/nezha-agent-binary/actions/runs/"$run_id" || true
+          done
+        shell: bash
