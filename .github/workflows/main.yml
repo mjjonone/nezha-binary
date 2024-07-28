@@ -1,6 +1,11 @@
 name: Build nezha-agent binary
 
 on:
+  workflow_run:
+    workflows: ["Run Tests"]
+    branches: [main]
+    types:
+      - completed
   workflow_dispatch:
     inputs:
       version:
@@ -29,7 +34,6 @@ jobs:
         run: |
           echo $RELEASE_VERSION
           echo ${{ env.RELEASE_VERSION }}
-      
       - name: Build
         timeout-minutes: 180
         run: |
@@ -37,27 +41,16 @@ jobs:
           go version
           VERSION="${{ env.RELEASE_VERSION }}"
           echo "VERSION=${VERSION}"
+          set -x
           DATE=$(date -u '+%Y-%m-%d-%H%M UTC')
-          echo "DATE=${DATE}"
-          VERSION_FLAGS="-X main.Version=${VERSION} -X main.BuildTime=${DATE}"
-          echo "VERSION_FLAGS=${VERSION_FLAGS}"
+          VERSION_FLAGS="-X \"main.Version=${VERSION}\" -X \"main.BuildTime=${DATE}\""
           NAME="nezha-agent"
           SRC="./cmd/agent"
           rm -rf ./release
-          mkdir -p release
-          
-          echo "Building for linux/amd64"
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -mod=mod -ldflags="${VERSION_FLAGS} -w -s" -o release/${NAME}-linux-amd64 ${SRC}
-          
-          echo "Building for linux/arm64"
-          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -v -mod=mod -ldflags="${VERSION_FLAGS} -w -s" -o release/${NAME}-linux-arm64 ${SRC}
-          
-          echo "Listing release directory contents:"
-          ls -l release/
-          
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build                     -mod=mod -ldflags="${VERSION_FLAGS} -w -s" -o release/${NAME}-linux-amd64 ${SRC}
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build                     -mod=mod -ldflags="${VERSION_FLAGS} -w -s" -o release/${NAME}-linux-arm64 ${SRC}
           mkdir -p musldist
           mv release/* musldist/
-      
       - name: Compress with UPX
         run: |
           latest_url=$(wget -qO- https://github.com/upx/upx/releases/latest | grep -oP 'https://github.com/upx/upx/releases/download/v[\d.]+/upx-[\d.]+-amd64_linux\.tar\.xz')
@@ -66,14 +59,12 @@ jobs:
           tar -Jxf upx*.tar.xz
           sudo cp upx*/upx /usr/bin
           upx -9 musldist/*
-      
       - name: Upload dist
         uses: actions/upload-artifact@main
         with:
           name: nezha-agent
           path: |
               musldist
-              
       - name: Generate release tag
         id: tag
         run: echo "::set-output name=release_tag::$(date +"%Y.%m.%d-%H%M")"
@@ -86,7 +77,6 @@ jobs:
           tag_name: ${{ steps.tag.outputs.release_tag }}
           files: |
               musldist/*
-      
       - name: Remove old Releases
         uses: dev-drprasad/delete-older-releases@v0.3.4
         with:
@@ -97,7 +87,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_KEY }}
           
-      - name: Clean workflow runs
+      - name: clean workflow runs
         uses: boredland/action-purge-workflow-runs@main
         with:
           days-old: 2
