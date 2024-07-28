@@ -23,9 +23,15 @@ jobs:
           repository: 'nezhahq/agent'
           fetch-depth: '1'
 
-      - uses: actions/setup-go@v4
+      - name: Set up Go
+        uses: actions/setup-go@v4
         with:
           go-version: 'stable'
+
+      - name: Set up Goreleaser
+        uses: goreleaser/goreleaser-action@v2
+        with:
+          version: latest
 
       - name: Set env
         run: echo "RELEASE_VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
@@ -34,25 +40,10 @@ jobs:
         run: |
           echo $RELEASE_VERSION
           echo ${{ env.RELEASE_VERSION }}
-          
-      - name: Build
-        timeout-minutes: 180
-        run: |
-          pwd
-          go version
-          VERSION="${{ env.RELEASE_VERSION }}"
-          echo "VERSION=${VERSION}"
-          set -x
-          DATE=$(date -u '+%Y-%m-%d-%H%M UTC')
-          VERSION_FLAGS="-X 'main.Version=${VERSION}' -X 'main.BuildTime=${DATE}'"
-          NAME="nezha-agent"
-          SRC="./cmd/agent"
-          rm -rf ./release
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=mod -ldflags="${VERSION_FLAGS} -w -s" -o release/${NAME}-linux-amd64 ${SRC}
-          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -mod=mod -ldflags="${VERSION_FLAGS} -w -s" -o release/${NAME}-linux-arm64 ${SRC}
-          mkdir -p musldist
-          mv release/* musldist/
-          
+      
+      - name: Build binaries
+        run: goreleaser --rm-dist --snapshot --skip-publish --env GORELEASER_CURRENT_TAG=${{ env.RELEASE_VERSION }}
+
       - name: Compress with UPX
         run: |
           latest_url=$(wget -qO- https://github.com/upx/upx/releases/latest | grep -oP 'https://github.com/upx/upx/releases/download/v[\d.]+/upx-[\d.]+-amd64_linux\.tar\.xz')
@@ -60,14 +51,13 @@ jobs:
           wget $latest_url
           tar -Jxf upx*.tar.xz
           sudo cp upx*/upx /usr/bin
-          upx -9 musldist/*
-          
+          upx -9 dist/*/*
+
       - name: Upload dist
         uses: actions/upload-artifact@main
         with:
           name: nezha-agent
-          path: |
-              musldist
+          path: dist/
               
       - name: Generate release tag
         id: tag
@@ -80,9 +70,8 @@ jobs:
           RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
         with:
           tag_name: ${{ steps.tag.outputs.release_tag }}
-          files: |
-              musldist/*
-              
+          files: dist/**/*
+
       - name: Remove old releases and tags
         run: |
           release_ids=$(gh release list --repo mjjonone/nezha-agent-binary --limit 100 | awk 'NR>2 {print $1}')
