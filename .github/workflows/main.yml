@@ -44,8 +44,17 @@ jobs:
           NAME="nezha-agent"
           SRC="./cmd/agent"
           rm -rf ./release
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=mod -ldflags="${VERSION_FLAGS} -w -s" -o release/${NAME}-linux-amd64 ${SRC}
-          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -mod=mod -ldflags="${VERSION_FLAGS} -w -s" -o release/${NAME}-linux-arm64 ${SRC}
+          mkdir -p release
+          
+          echo "Building for linux/amd64"
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -mod=mod -ldflags="${VERSION_FLAGS} -w -s" -o release/${NAME}-linux-amd64 ${SRC}
+          
+          echo "Building for linux/arm64"
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -v -mod=mod -ldflags="${VERSION_FLAGS} -w -s" -o release/${NAME}-linux-arm64 ${SRC}
+          
+          echo "Listing release directory contents:"
+          ls -l release/
+          
           mkdir -p musldist
           mv release/* musldist/
       
