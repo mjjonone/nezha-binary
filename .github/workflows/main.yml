@@ -51,24 +51,30 @@ jobs:
           tag_name: ${{ github.run_number }}
           files: release/*
 
-  - name: Remove old releases and tags
-    run: |
-      release_ids=$(gh release list --repo mjjonone/nezha-agent-binary --limit 100 | awk 'NR>2 {print \$1}')
-      for release_id in $release_ids; do
-        gh release delete --repo mjjonone/nezha-agent-binary $release_id --yes
-      done
-      tag_names=$(gh api repos/mjjonone/nezha-agent-binary/git/refs/tags --jq '.[].ref' | sed 's/refs\/tags\///' | tail -n +3)
-      for tag in $tag_names; do
-        gh api --method DELETE /repos/mjjonone/nezha-agent-binary/git/refs/tags/$tag
-      done
-    env:
-      GITHUB_TOKEN: ${{ secrets.ACCESS_KEY }}
+  remove_old_releases:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove old releases and tags
+        run: |
+          release_ids=$(gh release list --repo mjjonone/nezha-agent-binary --limit 100 | awk 'NR>2 {print \$1}')
+          for release_id in $release_ids; do
+            gh release delete --repo mjjonone/nezha-agent-binary $release_id --yes
+          done
+          tag_names=$(gh api repos/mjjonone/nezha-agent-binary/git/refs/tags --jq '.[].ref' | sed 's/refs\/tags\///' | tail -n +3)
+          for tag in $tag_names; do
+            gh api --method DELETE /repos/mjjonone/nezha-agent-binary/git/refs/tags/$tag
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.ACCESS_KEY }}
       
-  - name: Clean workflow runs
-    run: |
-      run_ids=$(gh api -X GET /repos/mjjonone/nezha-agent-binary/actions/runs | jq -r '.workflow_runs | sort_by(.run_number) | reverse | .[2:] | .[].id')
-      for run_id in $run_ids; do
-        gh api -X DELETE /repos/mjjonone/nezha-agent-binary/actions/runs/$run_id
-      done
-    env:
-      GITHUB_TOKEN: ${{ secrets.ACCESS_KEY }}
+  clean_workflow_runs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clean workflow runs
+        run: |
+          run_ids=$(gh api -X GET /repos/mjjonone/nezha-agent-binary/actions/runs | jq -r '.workflow_runs | sort_by(.run_number) | reverse | .[2:] | .[].id')
+          for run_id in $run_ids; do
+            gh api -X DELETE /repos/mjjonone/nezha-agent-binary/actions/runs/$run_id
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.ACCESS_KEY }}
