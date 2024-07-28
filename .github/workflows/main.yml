@@ -32,6 +32,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v5
         with:
           version: latest
+          args: build --snapshot --skip-publish --rm-dist
 
       - name: Set env
         run: |
@@ -47,7 +48,9 @@ jobs:
           echo ${{ env.RELEASE_VERSION }}
 
       - name: Build binaries
-        run: goreleaser build --snapshot --skip-publish --rm-dist --env GORELEASER_CURRENT_TAG=${{ env.RELEASE_VERSION }}
+        env:
+          GORELEASER_CURRENT_TAG: ${{ env.RELEASE_VERSION }}
+        run: goreleaser build --snapshot --skip-publish --rm-dist
 
       - name: Compress with UPX
         run: |
