@@ -12,6 +12,9 @@ on:
         description: 'Version number'
         required: true
 
+env:
+  RELEASE_VERSION: ${{ github.event.inputs.version }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -23,80 +26,42 @@ jobs:
           repository: 'nezhahq/agent'
           fetch-depth: '1'
 
-      - name: Set up Go
-        uses: actions/setup-go@v4
+      - uses: actions/setup-go@v4
         with:
           go-version: 'stable'
 
-      - name: Set up Goreleaser
-        uses: goreleaser/goreleaser-action@v5
-        with:
-          version: latest
-          install-only: true
-
-      - name: Set env
+      - name: Build
+        timeout-minutes: 180
         run: |
-          if [ -z "${{ github.event.inputs.version }}" ]; then
-            echo "RELEASE_VERSION=$(date +%Y.%m.%d-%H%M)" >> $GITHUB_ENV
-          else
-            echo "RELEASE_VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
-          fi
-
-      - name: Echo env
-        run: |
-          echo $RELEASE_VERSION
-          echo ${{ env.RELEASE_VERSION }}
-
-      - name: Build binaries
-        env:
-          GORELEASER_CURRENT_TAG: ${{ env.RELEASE_VERSION }}
-        run: goreleaser build --snapshot --clean
+          VERSION="${RELEASE_VERSION}"
+          DATE=$(date -u '+%Y-%m-%d-%H%M UTC')
+          VERSION_FLAGS="-X 'main.Version=${VERSION}' -X 'main.BuildTime=${DATE}'"
+          NAME="nezha-agent"
+          SRC="./cmd/agent"
+          mkdir -p release
+          for ARCH in amd64 arm64; do
+            CGO_ENABLED=0 GOOS=linux GOARCH=$ARCH go build -mod=mod -ldflags="${VERSION_FLAGS} -w -s" -o release/${NAME}-linux-${ARCH} ${SRC}
+          done
 
       - name: Compress with UPX
         run: |
-          latest_url=$(wget -qO- https://github.com/upx/upx/releases/latest | grep -oP 'https://github.com/upx/upx/releases/download/v[\d.]+/upx-[\d.]+-amd64_linux\.tar\.xz')
-          echo $latest_url
-          wget $latest_url
-          tar -Jxf upx*.tar.xz
-          sudo cp upx*/upx /usr/bin
-          upx -9 dist/*/*
-
-      - name: Upload dist
-        uses: actions/upload-artifact@v3
-        with:
-          name: nezha-agent
-          path: dist/
-              
-      - name: Generate release tag
-        id: tag
-        run: echo "release_tag=${{ env.RELEASE_VERSION }}" >> $GITHUB_OUTPUT
+          wget $(wget -qO- https://api.github.com/repos/upx/upx/releases/latest | grep -oP 'https://github.com/upx/upx/releases/download/.*amd64_linux\.tar\.xz')
+          tar -xf upx*.tar.xz
+          sudo mv upx*/upx /usr/local/bin
+          upx -9 release/*
 
       - name: Create release
         uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_KEY }}
         with:
-          tag_name: ${{ steps.tag.outputs.release_tag }}
-          files: dist/**/*
+          tag_name: ${{ github.run_number }}
+          files: release/*
 
-      - name: Remove old releases and tags
-        run: |
-          release_ids=$(gh release list --repo mjjonone/nezha-agent-binary --limit 100 | awk 'NR>2 {print \$1}')
-          for release_id in $release_ids; do
-            gh release delete --repo mjjonone/nezha-agent-binary $release_id --yes || true
-          done
-          tag_names=$(gh api repos/mjjonone/nezha-agent-binary/git/refs/tags --jq '.[].ref' | sed 's/refs\/tags\///' | tail -n +3)
-          for tag in $tag_names; do
-            gh api --method DELETE /repos/mjjonone/nezha-agent-binary/git/refs/tags/$tag || true
-          done
+      - name: Clean up old releases and runs
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_KEY }}
-          
-      - name: Clean workflow runs
         run: |
-          run_ids=$(gh api -X GET /repos/mjjonone/nezha-agent-binary/actions/runs | jq -r '.workflow_runs | sort_by(.run_number) | reverse | .[2:] | .[].id')
-          for run_id in $run_ids; do
-            gh api -X DELETE /repos/mjjonone/nezha-agent-binary/actions/runs/$run_id || true
-          done
-        env:
-          GITHUB_TOKEN: ${{ secrets.ACCESS_KEY }}
+          gh release list --repo mjjonone/nezha-agent-binary --limit 100 | awk 'NR>2 {print \$1}' | xargs -I {} gh release delete --repo mjjonone/nezha-agent-binary {} --yes
+          gh api repos/mjjonone/nezha-agent-binary/git/refs/tags --jq '.[].ref' | sed 's/refs\/tags\///' | tail -n +3 | xargs -I {} gh api --method DELETE /repos/mjjonone/nezha-agent-binary/git/refs/tags/{}
+          gh api -X GET /repos/mjjonone/nezha-agent-binary/actions/runs | jq -r '.workflow_runs | sort_by(.run_number) | reverse | .[2:] | .[].id' | xargs -I {} gh api -X DELETE /repos/mjjonone/nezha-agent-binary/actions/runs/{}
