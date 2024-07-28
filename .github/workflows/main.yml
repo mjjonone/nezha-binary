@@ -85,8 +85,11 @@ jobs:
               
       - name: Remove old releases and tags
         run: |
-          gh release list --repo mjjonone/nezha-agent-binary --limit 100 | awk 'NR>2 {print $1}' | xargs -I {} gh release delete --repo mjjonone/nezha-agent-binary {} --yes
-          tag_names=$(gh api repos/mjjonone/nezha-agent-binary/git/refs/tags --jq '.[].ref' | sed 's/refs\/tags\///')
+          release_ids=$(gh release list --repo mjjonone/nezha-agent-binary --limit 100 | awk 'NR>2 {print $1}')
+          for release_id in $release_ids; do
+            gh release delete --repo mjjonone/nezha-agent-binary $release_id --yes
+          done
+          tag_names=$(gh api repos/mjjonone/nezha-agent-binary/git/refs/tags --jq '.[].ref' | sed 's/refs\/tags\///' | tail -n +3)
           for tag in $tag_names; do
             gh api --method DELETE /repos/mjjonone/nezha-agent-binary/git/refs/tags/$tag
           done
