@@ -56,7 +56,7 @@ jobs:
     steps:
       - name: Remove old releases and tags
         run: |
-          release_ids=$(gh release list --repo mjjonone/nezha-agent-binary --limit 100 | awk 'NR>2 {print \\$1}')
+          release_ids=$(gh release list --repo mjjonone/nezha-agent-binary --limit 100 | jq -r '.[].id' | tail -n +98)
           for release_id in $release_ids; do
             gh release delete --repo mjjonone/nezha-agent-binary $release_id --yes
           done
