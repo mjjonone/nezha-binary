@@ -48,8 +48,8 @@ jobs:
           NAME="nezha-agent"
           SRC="./cmd/agent"
           rm -rf ./release
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build                     -mod=mod -ldflags="${VERSION_FLAGS} -w -s" -o release/${NAME}-linux-amd64 ${SRC}
-          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build                     -mod=mod -ldflags="${VERSION_FLAGS} -w -s" -o release/${NAME}-linux-arm64 ${SRC}
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=mod -ldflags="${VERSION_FLAGS} -w -s" -o release/${NAME}-linux-amd64 ${SRC}
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -mod=mod -ldflags="${VERSION_FLAGS} -w -s" -o release/${NAME}-linux-arm64 ${SRC}
           mkdir -p musldist
           mv release/* musldist/
           
@@ -71,7 +71,7 @@ jobs:
               
       - name: Generate release tag
         id: tag
-        run: echo "::set-output name=release_tag::$(date +"%Y.%m.%d-%H%M")"
+        run: echo "::set-output name=release_tag::$(date +\"%Y.%m.%d-%H%M\")"
 
       - name: Create release
         uses: softprops/action-gh-release@v1
@@ -85,8 +85,8 @@ jobs:
               
       - name: Remove old releases and tags
         run: |
-          gh release list --limit 100 | awk 'NR>2 {print $1}' | xargs -I {} gh release delete {} --yes
-          gh tag list --limit 100 | awk 'NR>2 {print $1}' | xargs -I {} gh api --method DELETE /repos/mjjonone/nezha-agent-binary/git/refs/tags/{}
+          gh release list --repo mjjonone/nezha-agent-binary --limit 100 | awk 'NR>2 {print $1}' | xargs -I {} gh release delete --repo mjjonone/nezha-agent-binary {} --yes
+          gh tag list --repo mjjonone/nezha-agent-binary --limit 100 | awk 'NR>2 {print $1}' | xargs -I {} gh api --method DELETE /repos/mjjonone/nezha-agent-binary/git/refs/tags/{}
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_KEY }}
           
