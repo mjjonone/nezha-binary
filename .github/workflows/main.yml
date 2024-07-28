@@ -44,7 +44,7 @@ jobs:
           echo "VERSION=${VERSION}"
           set -x
           DATE=$(date -u '+%Y-%m-%d-%H%M UTC')
-          VERSION_FLAGS="-X \"main.Version=${VERSION}\" -X \"main.BuildTime=${DATE}\""
+          VERSION_FLAGS="-X 'main.Version=${VERSION}' -X 'main.BuildTime=${DATE}'"
           NAME="nezha-agent"
           SRC="./cmd/agent"
           rm -rf ./release
