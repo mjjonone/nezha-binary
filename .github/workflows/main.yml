@@ -43,19 +43,6 @@ jobs:
             CGO_ENABLED=0 GOOS=linux GOARCH=$ARCH go build -mod=mod -ldflags="${VERSION_FLAGS} -w -s" -o release/${NAME}-linux-${ARCH} ${SRC}
           done
 
-      - name: Compress with UPX
-        run: |
-          wget $(wget -qO- https://api.github.com/repos/upx/upx/releases/latest | grep -oP 'https://github.com/upx/upx/releases/download/.*amd64_linux\.tar\.xz')
-          tar -xf upx*.tar.xz
-          sudo mv upx*/upx /usr/local/bin
-          upx -9 release/*
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: nezha-agent
-          path: release
-
       - name: Create release
         uses: softprops/action-gh-release@v1
         env:
@@ -64,29 +51,24 @@ jobs:
           tag_name: ${{ github.run_number }}
           files: release/*
 
-      - name: Clean up old releases and runs
-        env:
-          GITHUB_TOKEN: ${{ secrets.ACCESS_KEY }}
-        run: |
-          # Get the latest two release tags
-          LATEST_TAGS=$(gh release list --repo mjjonone/nezha-agent-binary --limit 2 | awk '{print \$1}')
-          
-          # Delete old releases except the latest two
-          gh release list --repo mjjonone/nezha-agent-binary --limit 100 | awk 'NR>2 {print \$1}' | while read -r release; do
-            if ! echo "$LATEST_TAGS" | grep -q "$release"; then
-              gh release delete --repo mjjonone/nezha-agent-binary "$release" --yes
-            fi
-          done
-          
-          # Delete old tags except the latest two
-          gh api repos/mjjonone/nezha-agent-binary/git/refs/tags --jq '.[].ref' | sed 's/refs\/tags\///' | while read -r tag; do
-            if ! echo "$LATEST_TAGS" | grep -q "$tag"; then
-              gh api --method DELETE /repos/mjjonone/nezha-agent-binary/git/refs/tags/"$tag"
-            fi
-          done
-          
-          # Delete old workflow runs, keeping the latest two
-          gh api -X GET /repos/mjjonone/nezha-agent-binary/actions/runs | jq -r '.workflow_runs | sort_by(.run_number) | reverse | .[2:] | .[].id' | while read -r run_id; do
-            gh api -X DELETE /repos/mjjonone/nezha-agent-binary/actions/runs/"$run_id"
-          done
-        shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+  - name: Remove old releases and tags
+    run: |
+      release_ids=$(gh release list --repo mjjonone/nezha-agent-binary --limit 100 | awk 'NR>2 {print \$1}')
+      for release_id in $release_ids; do
+        gh release delete --repo mjjonone/nezha-agent-binary $release_id --yes
+      done
+      tag_names=$(gh api repos/mjjonone/nezha-agent-binary/git/refs/tags --jq '.[].ref' | sed 's/refs\/tags\///' | tail -n +3)
+      for tag in $tag_names; do
+        gh api --method DELETE /repos/mjjonone/nezha-agent-binary/git/refs/tags/$tag
+      done
+    env:
+      GITHUB_TOKEN: ${{ secrets.ACCESS_KEY }}
+      
+  - name: Clean workflow runs
+    run: |
+      run_ids=$(gh api -X GET /repos/mjjonone/nezha-agent-binary/actions/runs | jq -r '.workflow_runs | sort_by(.run_number) | reverse | .[2:] | .[].id')
+      for run_id in $run_ids; do
+        gh api -X DELETE /repos/mjjonone/nezha-agent-binary/actions/runs/$run_id
+      done
+    env:
+      GITHUB_TOKEN: ${{ secrets.ACCESS_KEY }}
