@@ -77,6 +77,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_KEY }}
+          RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
         with:
           tag_name: ${{ steps.tag.outputs.release_tag }}
           files: |
@@ -84,8 +85,8 @@ jobs:
               
       - name: Remove old releases and tags
         run: |
-          gh release delete $(gh release list --limit 100 | awk 'NR>2 {print \$1}') --yes
-          gh api --method DELETE /repos/${{ github.repository }}/git/refs/tags/$(gh tag list --limit 100 | awk 'NR>2 {print \$1}')
+          gh release list --limit 100 | awk 'NR>2 {print $1}' | xargs -I {} gh release delete {} --yes
+          gh tag list --limit 100 | awk 'NR>2 {print $1}' | xargs -I {} gh api --method DELETE /repos/${{ github.repository }}/git/refs/tags/{}
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_KEY }}
           
