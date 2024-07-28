@@ -42,9 +42,10 @@ jobs:
           go version
           VERSION="${{ env.RELEASE_VERSION }}"
           echo "VERSION=${VERSION}"
-          set -x
           DATE=$(date -u '+%Y-%m-%d-%H%M UTC')
+          echo "DATE=${DATE}"
           VERSION_FLAGS="-X main.Version=${VERSION} -X main.BuildTime=${DATE}"
+          echo "VERSION_FLAGS=${VERSION_FLAGS}"
           NAME="nezha-agent"
           SRC="./cmd/agent"
           rm -rf ./release
